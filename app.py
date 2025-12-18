@@ -7,27 +7,63 @@ import io
 import os
 from PIL import Image
 
-# --- CONFIGURAÇÕES VISUAIS ---
+# --- CONFIGURAÇÃO DA PÁGINA E TEMA CSS (PROFISSIONAL & AZUL) ---
 st.set_page_config(page_title="Gerador de Folha de Ponto", layout="centered")
 
-# --- INSERÇÃO DA LOGOMARCA (Baseado no seu exemplo) ---
+# CSS Personalizado para forçar o tema AZUL e visual limpo
+st.markdown("""
+    <style>
+    /* Forçar cor primária azul nos botões e focos */
+    :root {
+        --primary-color: #0054a6;
+    }
+    
+    /* Estilo do Botão Principal (Gerar Documento) */
+    div.stButton > button:first-child {
+        background-color: #0054a6;
+        color: white;
+        border-radius: 5px;
+        border: none;
+        font-weight: bold;
+        padding: 0.5rem 1rem;
+    }
+    div.stButton > button:hover {
+        background-color: #003f7f;
+        color: white;
+    }
+
+    /* Estilo dos Radio Buttons (Bolinhas de seleção) */
+    div[role="radiogroup"] > label > div:first-child {
+        background-color: #0054a6 !important;
+    }
+
+    /* Ajuste de cabeçalhos para fonte mais sóbria */
+    h1, h2, h3 {
+        font-family: 'Arial', sans-serif;
+        color: #333;
+    }
+    
+    /* Remover padding excessivo do topo */
+    .block-container {
+        padding-top: 2rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- INSERÇÃO DA LOGOMARCA ---
 caminho_logo = "Logo tradicional.png"
 
 try:
-    # Verifica se o arquivo existe antes de tentar abrir
     if os.path.exists(caminho_logo):
         imagem = Image.open(caminho_logo)
-        # Utilizando colunas para centralizar a imagem
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             st.image(imagem, use_container_width=True)
-    else:
-        st.warning(f"Arquivo '{caminho_logo}' não encontrado. O sistema funcionará sem a logo.")
 except Exception as e:
-    st.error(f"Erro ao carregar a logo: {e}")
+    pass # Falha silenciosa se não tiver logo, para manter a estética
 
-st.markdown("<h1 style='text-align: center;'>Gerador de Folha de Ponto</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Bram Offshore | Uma empresa do grupo Chouest</p>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #0054a6;'>Gerador de Folha de Ponto</h2>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #666;'>Bram Offshore | Departamento Pessoal</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # --- ARQUIVOS PADRÃO ---
@@ -53,15 +89,11 @@ def limpar_e_escrever(celula, texto, tamanho=9, alinhamento=1):
     configurar_fonte(run, tamanho)
 
 def inserir_assinatura(celula, imagem_obj):
-    """
-    Insere a imagem na célula. Aceita objeto de memória (upload).
-    """
     celula._element.clear_content()
     p = celula.add_paragraph()
     p.alignment = 1
     run = p.add_run()
     try:
-        # Rebobina o arquivo para leitura múltipla
         if hasattr(imagem_obj, 'seek'):
             imagem_obj.seek(0)
         run.add_picture(imagem_obj, width=Inches(0.9))
@@ -146,19 +178,22 @@ def forcar_uma_pagina(doc):
 
 # --- FORMULÁRIO PRINCIPAL ---
 
-st.subheader("Dados Cadastrais")
+st.subheader("1. Dados do Colaborador")
 
+# Campos iniciados VAZIOS ("") para obrigar o preenchimento
 col1, col2 = st.columns(2)
 with col1:
-    mes_final = st.selectbox("Mês de Referência", options=list(range(1, 13)), index=11, format_func=lambda x: f"{x:02d}")
+    # Mês atual como sugestão, mas editável
+    hoje = datetime.now()
+    mes_final = st.selectbox("Mês de Referência", options=list(range(1, 13)), index=hoje.month-1, format_func=lambda x: f"{x:02d}")
 with col2:
-    ano_final = st.number_input("Ano", value=2025, step=1)
+    ano_final = st.number_input("Ano", value=hoje.year, step=1)
 
 col3, col4 = st.columns(2)
 with col3:
-    nome_func = st.text_input("Nome do Funcionário", "Lukas Souza Henriques Crespo")
+    nome_func = st.text_input("Nome Completo", "") # VAZIO
 with col4:
-    cargo_func = st.text_input("Função / Cargo", "Estagiário - Dep. DP Assurance")
+    cargo_func = st.text_input("Função / Cargo", "") # VAZIO
 
 col5, col6 = st.columns(2)
 with col5:
@@ -166,23 +201,17 @@ with col5:
     mapa_bases = {"Rio": "(Rio)", "Açu": "(Açu)", "Macaé": "(Macaé)", "Guaxindiba": "(Guax.)"}
     texto_base = mapa_bases[base_opt]
 with col6:
-    data_emissao = st.text_input("Data de Emissão (CTPS)", "04/02/2020")
+    data_emissao = st.text_input("Data de Emissão (CTPS)", "") # VAZIO
 
-# --- SEÇÃO DE ASSINATURA INTEGRADA ---
 st.markdown("---")
-st.subheader("Assinatura Digital")
-st.markdown("Faça o upload da imagem da sua assinatura (formato PNG ou JPG) para ser inserida no documento.")
-assinatura_upload = st.file_uploader("Selecionar arquivo de assinatura", type=["png", "jpg", "jpeg"])
+st.subheader("2. Assinatura Digital")
+assinatura_upload = st.file_uploader("Carregar imagem da assinatura (Opcional)", type=["png", "jpg", "jpeg"])
 
 if assinatura_upload:
-    st.success("Assinatura carregada com sucesso.")
-else:
-    st.info("Nenhuma assinatura carregada. O campo será preenchido apenas com texto.")
+    st.success("Assinatura carregada.")
 
-# --- SEÇÃO DE HORÁRIOS ---
 st.markdown("---")
-st.subheader("Configuração de Horários (Jornada 7h)")
-st.caption("Dica: Digite apenas '8' para 08:00 ou '12' para 12:00.")
+st.subheader("3. Configuração de Horários (Jornada 7h)")
 
 tipo_horario = st.radio("Tipo de Escala", ["Fixo (Mesmo horário todos os dias)", "Variável (Horário muda durante a semana)"], horizontal=True)
 
@@ -195,13 +224,14 @@ if tipo_horario.startswith("Fixo"):
     alm = c2.text_input("Saída para Almoço", "12:00")
     
     quarteto = calcular_quarteto(ent, alm)
+    # Mensagem informativa azul (info)
     st.info(f"Escala calculada: {quarteto[0]} - {quarteto[3]} (Intervalo: {quarteto[1]} às {quarteto[2]})")
     
     for d in range(5): escala_semanal[d] = quarteto
     txt_horario_cabecalho = f"{quarteto[0]} - {quarteto[3]}"
 
 else:
-    st.write("Defina o horário de entrada para cada dia da semana:")
+    st.write("Defina o horário de entrada para cada dia:")
     cols = st.columns(5)
     dias = ["Seg", "Ter", "Qua", "Qui", "Sex"]
     entradas = []
@@ -218,116 +248,117 @@ else:
     txt_horario_cabecalho = "Variável (7h)"
 
 st.markdown("---")
-st.subheader("Registro de Feriados")
-feriados_str = st.text_input("Dias de feriado no mês (separe os dias por vírgula, ex: 15, 25)", "")
+st.subheader("4. Feriados")
+feriados_str = st.text_input("Dias de feriado no mês (ex: 15, 25)", "")
 feriados = []
 if feriados_str:
     try:
         feriados = [int(x.strip()) for x in feriados_str.split(",") if x.strip().isdigit()]
     except:
-        st.error("Formato inválido. Use apenas números separados por vírgula.")
+        st.error("Use apenas números separados por vírgula.")
 
 st.markdown("---")
 
-# --- PROCESSAMENTO ---
+# --- PROCESSAMENTO E VALIDAÇÃO ---
 if st.button("Gerar Documento", type="primary", use_container_width=True):
-    try:
-        doc = Document(ARQUIVO_MODELO)
-        
-        # 1. Preenchimento de Cabeçalho
-        preencher_campo_seguro(doc, "Funcionário", nome_func)
-        preencher_campo_seguro(doc, "Função", cargo_func)
-        preencher_campo_seguro(doc, "Emissão", data_emissao, tamanho_fonte=9)
-        preencher_campo_seguro(doc, "Horário", txt_horario_cabecalho, tamanho_fonte=9)
-        
-        # 2. Marcar Mês
-        mapa_meses = {
-            1: ["dez", "jan"], 2: ["jan", "fev"], 3: ["fev", "mar"], 4: ["mar", "abr"],
-            5: ["abr", "mai"], 6: ["mai", "jun"], 7: ["jun", "jul"], 8: ["jul", "ago"],
-            9: ["ago", "set"], 10: ["set", "out"], 11: ["out", "nov"], 12: ["nov", "dez"]
-        }
-        mapa_texto = {
-             1: "Dez/Jan", 2: "Jan/Fev", 3: "Fev/Mar", 4: "Mar/Abr", 5: "Abr/Mai", 6: "Mai/Jun",
-             7: "Jun/Jul", 8: "Jul/Ago", 9: "Ago/Set", 10: "Set/Out", 11: "Out/Nov", 12: "Nov/Dez"
-        }
-        
-        if mes_final in mapa_meses:
-            termos = mapa_meses[mes_final]
-            txt_mes = mapa_texto[mes_final]
+    
+    # Validação simples para não gerar documento em branco
+    if not nome_func or not cargo_func or not data_emissao:
+        st.warning("⚠️ Por favor, preencha o Nome, Cargo e Data de Emissão antes de gerar.")
+    else:
+        try:
+            doc = Document(ARQUIVO_MODELO)
             
-            for table in iterar_todas_as_tabelas(doc):
+            # 1. Cabeçalho
+            preencher_campo_seguro(doc, "Funcionário", nome_func)
+            preencher_campo_seguro(doc, "Função", cargo_func)
+            preencher_campo_seguro(doc, "Emissão", data_emissao, tamanho_fonte=9)
+            preencher_campo_seguro(doc, "Horário", txt_horario_cabecalho, tamanho_fonte=9)
+            
+            # 2. Mês
+            mapa_meses = {
+                1: ["dez", "jan"], 2: ["jan", "fev"], 3: ["fev", "mar"], 4: ["mar", "abr"],
+                5: ["abr", "mai"], 6: ["mai", "jun"], 7: ["jun", "jul"], 8: ["jul", "ago"],
+                9: ["ago", "set"], 10: ["set", "out"], 11: ["out", "nov"], 12: ["nov", "dez"]
+            }
+            mapa_texto = {
+                 1: "Dez/Jan", 2: "Jan/Fev", 3: "Fev/Mar", 4: "Mar/Abr", 5: "Abr/Mai", 6: "Mai/Jun",
+                 7: "Jun/Jul", 8: "Jul/Ago", 9: "Ago/Set", 10: "Set/Out", 11: "Out/Nov", 12: "Nov/Dez"
+            }
+            
+            if mes_final in mapa_meses:
+                termos = mapa_meses[mes_final]
+                txt_mes = mapa_texto[mes_final]
+                for table in iterar_todas_as_tabelas(doc):
+                    for row in table.rows:
+                        for cell in row.cells:
+                            if all(t in cell.text.lower() for t in termos):
+                                limpar_e_escrever(cell, f"{CHECKBOX_MARCADO} {txt_mes}", tamanho=9, alinhamento=0)
+            
+            # 3. Base
+            marcar_base_preservando_linhas(doc, texto_base)
+            
+            # 4. Dias
+            if mes_final == 1: mi, ai = 12, ano_final - 1
+            else: mi, ai = mes_final - 1, ano_final
+            
+            C_DIA, C_INI, C_ALM_IDA, C_ALM_VOL, C_FIM, C_ASS = 0, 2, 3, 4, 6, 7
+            
+            for table in doc.tables:
                 for row in table.rows:
-                    for cell in row.cells:
-                        if all(t in cell.text.lower() for t in termos):
-                            limpar_e_escrever(cell, f"{CHECKBOX_MARCADO} {txt_mes}", tamanho=9, alinhamento=0)
-        
-        # 3. Marcar Base
-        marcar_base_preservando_linhas(doc, texto_base)
-        
-        # 4. Preencher Tabela de Dias
-        if mes_final == 1: mi, ai = 12, ano_final - 1
-        else: mi, ai = mes_final - 1, ano_final
-        
-        C_DIA, C_INI, C_ALM_IDA, C_ALM_VOL, C_FIM, C_ASS = 0, 2, 3, 4, 6, 7
-        
-        for table in doc.tables:
-            for row in table.rows:
-                try:
-                    txt_dia = row.cells[C_DIA].text.strip()
-                    if not txt_dia.isdigit(): continue
-                    dia = int(txt_dia)
-                    
-                    mc, ac = (mi, ai) if dia > 15 else (mes_final, ano_final)
-                    try: dt = date(ac, mc, dia)
-                    except: continue
-                    
-                    wd = dt.weekday()
-                    cells_alvo = [C_INI, C_ALM_IDA, C_ALM_VOL, C_FIM]
-                    if len(row.cells) <= C_FIM: cells_alvo = [1,2,3,4]
+                    try:
+                        txt_dia = row.cells[C_DIA].text.strip()
+                        if not txt_dia.isdigit(): continue
+                        dia = int(txt_dia)
+                        
+                        mc, ac = (mi, ai) if dia > 15 else (mes_final, ano_final)
+                        try: dt = date(ac, mc, dia)
+                        except: continue
+                        
+                        wd = dt.weekday()
+                        cells_alvo = [C_INI, C_ALM_IDA, C_ALM_VOL, C_FIM]
+                        if len(row.cells) <= C_FIM: cells_alvo = [1,2,3,4]
 
-                    # Lógica de preenchimento (Feriado > FDS > Útil)
-                    if dia in feriados:
-                        for i in cells_alvo: 
-                            if i < len(row.cells): limpar_e_escrever(row.cells[i], "FERIADO")
-                        if C_ASS < len(row.cells): limpar_e_escrever(row.cells[C_ASS], "")
-                    elif wd == 5:
-                        for i in cells_alvo: 
-                            if i < len(row.cells): limpar_e_escrever(row.cells[i], "SÁBADO")
-                        if C_ASS < len(row.cells): limpar_e_escrever(row.cells[C_ASS], "")
-                    elif wd == 6:
-                        for i in cells_alvo: 
-                            if i < len(row.cells): limpar_e_escrever(row.cells[i], "DOMINGO")
-                        if C_ASS < len(row.cells): limpar_e_escrever(row.cells[C_ASS], "")
-                    else:
-                        horarios = escala_semanal.get(wd)
-                        if horarios:
-                            for k, idx in enumerate(cells_alvo):
-                                if idx < len(row.cells): limpar_e_escrever(row.cells[idx], horarios[k])
-                            
-                            # INSERÇÃO DA ASSINATURA (SE HOUVER UPLOAD)
-                            if C_ASS < len(row.cells):
-                                if assinatura_upload:
-                                    inserir_assinatura(row.cells[C_ASS], assinatura_upload)
-                                else:
-                                    limpar_e_escrever(row.cells[C_ASS], "[Assinatura]")
+                        if dia in feriados:
+                            for i in cells_alvo: 
+                                if i < len(row.cells): limpar_e_escrever(row.cells[i], "FERIADO")
+                            if C_ASS < len(row.cells): limpar_e_escrever(row.cells[C_ASS], "")
+                        elif wd == 5:
+                            for i in cells_alvo: 
+                                if i < len(row.cells): limpar_e_escrever(row.cells[i], "SÁBADO")
+                            if C_ASS < len(row.cells): limpar_e_escrever(row.cells[C_ASS], "")
+                        elif wd == 6:
+                            for i in cells_alvo: 
+                                if i < len(row.cells): limpar_e_escrever(row.cells[i], "DOMINGO")
+                            if C_ASS < len(row.cells): limpar_e_escrever(row.cells[C_ASS], "")
+                        else:
+                            horarios = escala_semanal.get(wd)
+                            if horarios:
+                                for k, idx in enumerate(cells_alvo):
+                                    if idx < len(row.cells): limpar_e_escrever(row.cells[idx], horarios[k])
                                 
-                except IndexError: pass
-        
-        forcar_uma_pagina(doc)
-        
-        # SALVAR EM MEMÓRIA
-        buffer = io.BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-        
-        st.success("Documento gerado com sucesso!")
-        st.download_button(
-            label="Baixar Folha de Ponto",
-            data=buffer,
-            file_name=f"Folha_Ponto_{mes_final}_{ano_final}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True
-        )
-        
-    except Exception as e:
-        st.error(f"Erro ao gerar documento: {e}")
+                                if C_ASS < len(row.cells):
+                                    if assinatura_upload:
+                                        inserir_assinatura(row.cells[C_ASS], assinatura_upload)
+                                    else:
+                                        limpar_e_escrever(row.cells[C_ASS], "[Assinatura]")
+                                    
+                    except IndexError: pass
+            
+            forcar_uma_pagina(doc)
+            
+            buffer = io.BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
+            
+            st.success("Documento processado com sucesso!")
+            st.download_button(
+                label="⬇️ Baixar Folha de Ponto Preenchida",
+                data=buffer,
+                file_name=f"Folha_{nome_func.split()[0]}_{mes_final}_{ano_final}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True
+            )
+            
+        except Exception as e:
+            st.error(f"Erro técnico ao gerar documento: {e}")
