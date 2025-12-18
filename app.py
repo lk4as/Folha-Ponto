@@ -4,6 +4,7 @@ from docx.shared import Pt, Inches, Cm
 from docx.oxml.ns import qn
 from datetime import date, datetime, timedelta
 import io
+import os
 
 # --- CONFIGURAÇÕES VISUAIS ---
 st.set_page_config(page_title="Gerador de Folha de Ponto", page_icon="📝")
@@ -11,16 +12,16 @@ st.set_page_config(page_title="Gerador de Folha de Ponto", page_icon="📝")
 st.title("📝 Gerador de Folha de Ponto - Bram Offshore")
 st.markdown("Preencha os dados abaixo para gerar o documento automaticamente.")
 
-# --- ARQUIVOS (Estão na mesma pasta do script) ---
+# --- ARQUIVOS PADRÃO ---
 ARQUIVO_MODELO = "Folha de Ponto.docx"
-ARQUIVO_ASSINATURA = "assinatura.png"
+ARQUIVO_ASSINATURA_PADRAO = "assinatura.png"
 NOME_DA_FONTE = 'Arial'
 
 # Símbolos
 CHECKBOX_MARCADO = "\u2612"
 CHECKBOX_VAZIO = "\u2610"
 
-# --- FUNÇÕES UTILITÁRIAS (A mesma lógica robusta) ---
+# --- FUNÇÕES UTILITÁRIAS ---
 def configurar_fonte(run, tamanho=9):
     run.font.name = NOME_DA_FONTE
     run.font.size = Pt(tamanho)
@@ -34,14 +35,23 @@ def limpar_e_escrever(celula, texto, tamanho=9, alinhamento=1):
     run = p.add_run(str(texto))
     configurar_fonte(run, tamanho)
 
-def inserir_assinatura(celula, caminho_imagem):
+def inserir_assinatura(celula, imagem_obj):
+    """
+    Insere a imagem na célula. Aceita caminho de arquivo ou objeto de memória (upload).
+    """
     celula._element.clear_content()
     p = celula.add_paragraph()
     p.alignment = 1
     run = p.add_run()
     try:
-        run.add_picture(caminho_imagem, width=Inches(0.9))
-    except FileNotFoundError:
+        # Se for um arquivo de upload (Streamlit), precisamos 'rebobinar' a leitura
+        # para poder inserir a mesma imagem várias vezes.
+        if hasattr(imagem_obj, 'seek'):
+            imagem_obj.seek(0)
+            
+        run.add_picture(imagem_obj, width=Inches(0.9))
+    except Exception as e:
+         # Fallback se der erro ou não tiver imagem
          run.add_text("[Assinatura]")
          configurar_fonte(run, 8)
 
@@ -122,6 +132,23 @@ def forcar_uma_pagina(doc):
 
 # --- INTERFACE DO STREAMLIT ---
 
+# Seção de Upload de Assinatura (NOVO)
+st.sidebar.header("✍️ Assinatura")
+assinatura_upload = st.sidebar.file_uploader("Faça upload da imagem (PNG/JPG)", type=["png", "jpg", "jpeg"])
+
+# Define qual imagem usar
+imagem_assinatura_final = None
+
+if assinatura_upload:
+    imagem_assinatura_final = assinatura_upload
+elif os.path.exists(ARQUIVO_ASSINATURA_PADRAO):
+    # Se não fez upload, tenta usar a padrão da pasta (se existir)
+    imagem_assinatura_final = ARQUIVO_ASSINATURA_PADRAO
+    st.sidebar.info("Usando assinatura padrão do sistema.")
+else:
+    st.sidebar.warning("Nenhuma assinatura encontrada. O campo ficará em texto.")
+
+# --- FORMULÁRIO PRINCIPAL ---
 col1, col2 = st.columns(2)
 with col1:
     mes_final = st.selectbox("Mês", options=list(range(1, 13)), index=11, format_func=lambda x: f"{x:02d}")
@@ -144,6 +171,7 @@ with col6:
 
 st.markdown("---")
 st.subheader("⏰ Configuração de Horários (Carga 7h)")
+st.info("Dica: Digite apenas '8' para 08:00 ou '12' para 12:00.")
 
 tipo_horario = st.radio("Tipo de Horário", ["Fixo (Igual todos os dias)", "Variável (Muda na semana)"], horizontal=True)
 
@@ -152,11 +180,11 @@ txt_horario_cabecalho = ""
 
 if tipo_horario.startswith("Fixo"):
     c1, c2 = st.columns(2)
-    ent = c1.text_input("Entrada (ex: 8 ou 08:00)", "08:00")
-    alm = c2.text_input("Saída Almoço (ex: 12 ou 12:00)", "12:00")
+    ent = c1.text_input("Entrada", "08:00")
+    alm = c2.text_input("Saída Almoço", "12:00")
     
     quarteto = calcular_quarteto(ent, alm)
-    st.info(f"Escala calculada: {quarteto[0]} - {quarteto[3]} (Almoço: {quarteto[1]} às {quarteto[2]})")
+    st.success(f"Escala calculada: {quarteto[0]} - {quarteto[3]} (Almoço: {quarteto[1]} às {quarteto[2]})")
     
     for d in range(5): escala_semanal[d] = quarteto
     txt_horario_cabecalho = f"{quarteto[0]} - {quarteto[3]}"
@@ -210,14 +238,15 @@ if st.button("Gerar Documento", type="primary"):
              7: "Jun/Jul", 8: "Jul/Ago", 9: "Ago/Set", 10: "Set/Out", 11: "Out/Nov", 12: "Nov/Dez"
         }
         
-        termos = mapa_meses[mes_final]
-        txt_mes = mapa_texto[mes_final]
-        
-        for table in iterar_todas_as_tabelas(doc):
-            for row in table.rows:
-                for cell in row.cells:
-                    if all(t in cell.text.lower() for t in termos):
-                        limpar_e_escrever(cell, f"{CHECKBOX_MARCADO} {txt_mes}", tamanho=9, alinhamento=0)
+        if mes_final in mapa_meses:
+            termos = mapa_meses[mes_final]
+            txt_mes = mapa_texto[mes_final]
+            
+            for table in iterar_todas_as_tabelas(doc):
+                for row in table.rows:
+                    for cell in row.cells:
+                        if all(t in cell.text.lower() for t in termos):
+                            limpar_e_escrever(cell, f"{CHECKBOX_MARCADO} {txt_mes}", tamanho=9, alinhamento=0)
         
         # 3. Marcar Base
         marcar_base_preservando_linhas(doc, texto_base)
@@ -261,7 +290,13 @@ if st.button("Gerar Documento", type="primary"):
                         if horarios:
                             for k, idx in enumerate(cells_alvo):
                                 if idx < len(row.cells): limpar_e_escrever(row.cells[idx], horarios[k])
-                            if C_ASS < len(row.cells): inserir_assinatura(row.cells[C_ASS], ARQUIVO_ASSINATURA)
+                            
+                            # AQUI INSERE A ASSINATURA (DO UPLOAD OU PADRÃO)
+                            if C_ASS < len(row.cells) and imagem_assinatura_final:
+                                inserir_assinatura(row.cells[C_ASS], imagem_assinatura_final)
+                            elif C_ASS < len(row.cells):
+                                limpar_e_escrever(row.cells[C_ASS], "[Assinatura]")
+                                
                 except IndexError: pass
         
         forcar_uma_pagina(doc)
