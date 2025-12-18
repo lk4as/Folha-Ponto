@@ -27,7 +27,7 @@ except Exception as e:
     st.error(f"Erro ao carregar a logo: {e}")
 
 st.markdown("<h1 style='text-align: center;'>Gerador de Folha de Ponto</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Bram Offshore | Departamento de Pessoal</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Bram Offshore | Uma empresa do grupo Chouest</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # --- ARQUIVOS PADRÃO ---
