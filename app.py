@@ -10,7 +10,7 @@ from PIL import Image
 # --- CONFIGURAÇÃO DA PÁGINA E TEMA CSS (PROFISSIONAL & AZUL) ---
 st.set_page_config(page_title="Gerador de Folha de Ponto", layout="centered")
 
-# CSS Personalizado para forçar o tema AZUL e visual limpo
+# CSS Personalizado para forçar o tema AZUL e visual limpo nos inputs e botões
 st.markdown("""
     <style>
     /* Forçar cor primária azul nos botões e focos */
@@ -37,10 +37,9 @@ st.markdown("""
         background-color: #0054a6 !important;
     }
 
-    /* Ajuste de cabeçalhos para fonte mais sóbria */
-    h1, h2, h3 {
+    /* Ajuste global de fontes */
+    h1, h2, h3, p, div {
         font-family: 'Arial', sans-serif;
-        color: #333;
     }
     
     /* Remover padding excessivo do topo */
@@ -50,20 +49,29 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- INSERÇÃO DA LOGOMARCA ---
+# --- SEÇÃO DO CABEÇALHO (LOGO E TÍTULOS AJUSTADOS) ---
 caminho_logo = "Logo tradicional.png"
 
-try:
-    if os.path.exists(caminho_logo):
-        imagem = Image.open(caminho_logo)
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.image(imagem, use_container_width=True)
-except Exception as e:
-    pass # Falha silenciosa se não tiver logo, para manter a estética
+# Container para garantir o alinhamento centralizado vertical e horizontal
+with st.container():
+    try:
+        if os.path.exists(caminho_logo):
+            imagem = Image.open(caminho_logo)
+            # Colunas para centralizar a imagem
+            col_esq, col_centro, col_dir = st.columns([1, 2, 1])
+            with col_centro:
+                st.image(imagem, use_container_width=True)
+    except Exception as e:
+        pass # Falha silenciosa se não tiver logo
 
-st.markdown("<h2 style='text-align: center; color: #0054a6;'>Gerador de Folha de Ponto</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #666;'>Bram Offshore | Departamento Pessoal</p>", unsafe_allow_html=True)
+    # Títulos ajustados com CSS inline para alinhamento fino e cor preta
+    st.markdown("""
+        <div style='text-align: center;'>
+            <h2 style='color: #000000; margin-bottom: 0px; margin-top: 10px;'>Gerador de Folha de Ponto</h2>
+            <p style='color: #666; margin-top: 5px; font-size: 1.1em;'>Bram Offshore | Uma empresa do grupo Edison Chouest</p>
+        </div>
+    """, unsafe_allow_html=True)
+
 st.markdown("---")
 
 # --- ARQUIVOS PADRÃO ---
@@ -185,7 +193,9 @@ col1, col2 = st.columns(2)
 with col1:
     # Mês atual como sugestão, mas editável
     hoje = datetime.now()
-    mes_final = st.selectbox("Mês de Referência", options=list(range(1, 13)), index=hoje.month-1, format_func=lambda x: f"{x:02d}")
+    # Ajuste para lidar com janeiro (mês 1 -> index 0)
+    index_mes = hoje.month - 1 if hoje.month > 0 else 0
+    mes_final = st.selectbox("Mês de Referência", options=list(range(1, 13)), index=index_mes, format_func=lambda x: f"{x:02d}")
 with col2:
     ano_final = st.number_input("Ano", value=hoje.year, step=1)
 
